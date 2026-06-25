@@ -1,0 +1,103 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Peliculas.Models.Movie.Dto;
+using Peliculas.Services;
+using System.Security.Claims;
+
+namespace Peliculas.Controllers
+{
+    [Route("api/movies")]
+    [ApiController]
+    public class MoviesController : ControllerBase
+    {
+        private readonly MovieService _movieService;
+
+        public MoviesController(MovieService movieService)
+        {
+            _movieService = movieService;
+        }
+
+        // Helper para obtener el ID del usuario logueado desde el token
+        private int? GetCurrentUserId()
+        {
+            var value = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return value == null ? null : int.Parse(value);
+        }
+
+        [HttpGet]
+        [ProducesResponseType(typeof(List<MovieDTO>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<MovieDTO>>> GetAll(
+            [FromQuery] string? search,
+            [FromQuery] string? genre)
+        {
+            var result = await _movieService.GetAll(search, genre);
+            return Ok(result);
+        }
+
+        [HttpGet("{id}")]
+        [ProducesResponseType(typeof(MovieDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<MovieDTO>> GetById(int id)
+        {
+            var result = await _movieService.GetById(id);
+            return result == null ? NotFound() : Ok(result);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(MovieDTO), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<MovieDTO>> Create([FromBody] CreateMovieDTO dto)
+        {
+            try
+            {
+                var result = await _movieService.Create(dto);
+                return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(MovieDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<MovieDTO>> Update(int id, [FromBody] UpdateMovieDTO dto)
+        {
+            try
+            {
+                var result = await _movieService.Update(id, dto);
+                return result == null ? NotFound() : Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                var deleted = await _movieService.Delete(id);
+                return deleted ? NoContent() : NotFound();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+    }
+}
