@@ -1,8 +1,9 @@
-using Microsoft.EntityFrameworkCore;
-using Peliculas.Config;
-using Peliculas.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Peliculas.Config;
+using Peliculas.Repositories;
+using Peliculas.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,11 @@ builder.Services.AddScoped<MovieService>();
 builder.Services.AddScoped<RatingService>();
 builder.Services.AddScoped<ReviewService>();
 builder.Services.AddScoped<MovieListService>();
+
+builder.Services.AddScoped<IMovieRepository, MovieRepository>();
+builder.Services.AddScoped<IRatingRepository, RatingRepository>();
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+builder.Services.AddScoped<IMovieListRepository, MovieListRepository>();
 
 //JWT
 string secret = builder.Configuration["Secrets:jwt"]

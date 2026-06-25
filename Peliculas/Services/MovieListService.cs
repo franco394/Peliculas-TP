@@ -1,49 +1,36 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Peliculas.Config;
-using Peliculas.Models;
+﻿using Peliculas.Models;
 using Peliculas.Models.MovieList;
 using Peliculas.Models.MovieList.Dto;
+using Peliculas.Repositories;
 
 namespace Peliculas.Services
 {
     public class MovieListService
     {
-        private readonly AppDbContext _db;
+        private readonly IMovieListRepository _listRepo;
 
-        public MovieListService(AppDbContext db)
+        public MovieListService(IMovieListRepository listRepo)
         {
-            _db = db;
+            _listRepo = listRepo;
         }
 
-        // Trae todas las listas de un usuario
         public async Task<List<MovieListDTO>> GetByUser(int userId)
         {
-            var lists = await _db.MovieLists
-                .Include(l => l.Items)
-                .Where(l => l.UserId == userId)
-                .ToListAsync();
-
+            var lists = await _listRepo.GetByUser(userId);
             return lists.Select(ToDTO).ToList();
         }
 
-        // Trae el detalle de una lista con sus películas
         public async Task<MovieListDetailDTO?> GetById(int id, int? currentUserId)
         {
-            var list = await _db.MovieLists
-                .Include(l => l.User)
-                .Include(l => l.Items).ThenInclude(i => i.Movie)
-                .FirstOrDefaultAsync(l => l.Id == id);
-
+            var list = await _listRepo.GetByIdWithDetails(id);
             if (list == null) return null;
 
-            // Si la lista es privada, solo el dueño puede verla
             if (!list.IsPublic && list.UserId != currentUserId)
                 throw new UnauthorizedAccessException("Esta lista es privada.");
 
             return ToDetailDTO(list);
         }
 
-        // Crea una lista nueva
         public async Task<MovieListDTO> Create(int userId, CreateListDTO dto)
         {
             var list = new MovieList
@@ -54,44 +41,32 @@ namespace Peliculas.Services
                 IsPublic = dto.IsPublic
             };
 
-            _db.MovieLists.Add(list);
-            await _db.SaveChangesAsync();
-            return ToDTO(list);
+            var created = await _listRepo.Create(list);
+            return ToDTO(created);
         }
 
-        // Elimina una lista propia
         public async Task<bool> Delete(int userId, int listId)
         {
-            var list = await _db.MovieLists.FindAsync(listId);
+            var list = await _listRepo.GetById(listId);
             if (list == null) return false;
 
             if (list.UserId != userId)
                 throw new UnauthorizedAccessException("No podés eliminar una lista que no es tuya.");
 
-            _db.MovieLists.Remove(list);
-            await _db.SaveChangesAsync();
-            return true;
+            return await _listRepo.Delete(listId);
         }
 
-        // Agrega una película a una lista
         public async Task AddMovie(int userId, int listId, AddMovieToListDTO dto)
         {
-            var list = await _db.MovieLists
-                .Include(l => l.Items)
-                .FirstOrDefaultAsync(l => l.Id == listId)
+            var list = await _listRepo.GetByIdWithDetails(listId)
                 ?? throw new Exception("Lista no encontrada.");
 
             if (list.UserId != userId)
                 throw new UnauthorizedAccessException("No podés modificar una lista que no es tuya.");
 
-            // Verificamos que la película no esté ya en la lista
-            var alreadyIn = list.Items.Any(i => i.MovieId == dto.MovieId);
+            var alreadyIn = await _listRepo.MovieExistsInList(listId, dto.MovieId);
             if (alreadyIn)
                 throw new Exception("La película ya está en la lista.");
-
-            // Verificamos que la película existe
-            var movie = await _db.Movies.FindAsync(dto.MovieId)
-                ?? throw new Exception("Película no encontrada.");
 
             var item = new MovieListItem
             {
@@ -101,25 +76,18 @@ namespace Peliculas.Services
                 Note = dto.Note
             };
 
-            _db.MovieListItems.Add(item);
-            await _db.SaveChangesAsync();
+            await _listRepo.AddMovie(item);
         }
 
-        // Elimina una película de una lista
         public async Task RemoveMovie(int userId, int listId, int movieId)
         {
-            var list = await _db.MovieLists.FindAsync(listId)
+            var list = await _listRepo.GetById(listId)
                 ?? throw new Exception("Lista no encontrada.");
 
             if (list.UserId != userId)
                 throw new UnauthorizedAccessException("No podés modificar una lista que no es tuya.");
 
-            var item = await _db.MovieListItems
-                .FirstOrDefaultAsync(i => i.MovieListId == listId && i.MovieId == movieId)
-                ?? throw new Exception("La película no está en la lista.");
-
-            _db.MovieListItems.Remove(item);
-            await _db.SaveChangesAsync();
+            await _listRepo.RemoveMovie(listId, movieId);
         }
 
         private static MovieListDTO ToDTO(MovieList list) => new()

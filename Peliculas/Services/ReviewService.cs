@@ -1,44 +1,28 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Peliculas.Config;
-using Peliculas.Models.Review;
+﻿using Peliculas.Models.Review;
 using Peliculas.Models.Review.Dto;
+using Peliculas.Repositories;
 
 namespace Peliculas.Services
 {
     public class ReviewService
     {
-        private readonly AppDbContext _db;
+        private readonly IReviewRepository _reviewRepo;
 
-        public ReviewService(AppDbContext db)
+        public ReviewService(IReviewRepository reviewRepo)
         {
-            _db = db;
+            _reviewRepo = reviewRepo;
         }
 
-        // Trae todas las reviews de una película
         public async Task<List<ReviewDTO>> GetByMovie(int movieId)
         {
-            var reviews = await _db.Reviews
-                .Include(r => r.User)
-                .Include(r => r.Movie)
-                .Where(r => r.MovieId == movieId)
-                .OrderByDescending(r => r.CreatedAt)
-                .ToListAsync();
-
+            var reviews = await _reviewRepo.GetByMovie(movieId);
             return reviews.Select(ToDTO).ToList();
         }
 
-        // Crea una review para una película
         public async Task<ReviewDTO> Create(int userId, int movieId, CreateReviewDTO dto)
         {
-            // Verificamos que la película existe
-            var movie = await _db.Movies.FindAsync(movieId)
-                ?? throw new Exception("Película no encontrada.");
-
-            // Un usuario solo puede tener una review por película
-            var existing = await _db.Reviews
-                .FirstOrDefaultAsync(r => r.UserId == userId && r.MovieId == movieId);
-
-            if (existing != null)
+            var alreadyExists = await _reviewRepo.ExistsByUserAndMovie(userId, movieId);
+            if (alreadyExists)
                 throw new Exception("Ya tenés una reseña para esta película.");
 
             var review = new Review
@@ -49,27 +33,16 @@ namespace Peliculas.Services
                 ContainsSpoilers = dto.ContainsSpoilers
             };
 
-            _db.Reviews.Add(review);
-            await _db.SaveChangesAsync();
-
-            // Cargamos User y Movie para el DTO
-            await _db.Entry(review).Reference(r => r.User).LoadAsync();
-            await _db.Entry(review).Reference(r => r.Movie).LoadAsync();
-
-            return ToDTO(review);
+            var created = await _reviewRepo.Create(review);
+            var withDetails = await _reviewRepo.GetByIdWithDetails(created.Id);
+            return ToDTO(withDetails!);
         }
 
-        // Actualiza una review propia
         public async Task<ReviewDTO?> Update(int userId, int reviewId, UpdateReviewDTO dto)
         {
-            var review = await _db.Reviews
-                .Include(r => r.User)
-                .Include(r => r.Movie)
-                .FirstOrDefaultAsync(r => r.Id == reviewId);
-
+            var review = await _reviewRepo.GetByIdWithDetails(reviewId);
             if (review == null) return null;
 
-            // Solo el dueño puede editar su review
             if (review.UserId != userId)
                 throw new UnauthorizedAccessException("No podés editar una reseña que no es tuya.");
 
@@ -77,22 +50,19 @@ namespace Peliculas.Services
             review.ContainsSpoilers = dto.ContainsSpoilers;
             review.UpdatedAt = DateTime.UtcNow;
 
-            await _db.SaveChangesAsync();
+            await _reviewRepo.Update(review);
             return ToDTO(review);
         }
 
-        // Elimina una review. El dueño o un admin pueden hacerlo
         public async Task<bool> Delete(int userId, int reviewId, bool isAdmin)
         {
-            var review = await _db.Reviews.FindAsync(reviewId);
+            var review = await _reviewRepo.GetById(reviewId);
             if (review == null) return false;
 
             if (!isAdmin && review.UserId != userId)
                 throw new UnauthorizedAccessException("No podés eliminar una reseña que no es tuya.");
 
-            _db.Reviews.Remove(review);
-            await _db.SaveChangesAsync();
-            return true;
+            return await _reviewRepo.Delete(reviewId);
         }
 
         private static ReviewDTO ToDTO(Review review) => new()
