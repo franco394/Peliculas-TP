@@ -10,11 +10,4 @@ namespace Peliculas.Models.Rating.Dto
         public decimal Score { get; set; }
         public DateTime CreatedAt { get; set; }
     }
-
-    public class UpsertRatingDTO
-    {
-        [Required]
-        [Range(0.5, 5.0)]
-        public decimal Score { get; set; }
-    }
 }

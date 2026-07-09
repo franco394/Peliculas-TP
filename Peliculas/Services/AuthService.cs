@@ -1,10 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Peliculas.Config;
 using Peliculas.Models.Role;
 using Peliculas.Models.User;
 using Peliculas.Models.User.Dto;
+using Peliculas.Utils;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 
@@ -12,61 +17,94 @@ namespace Peliculas.Services
 {
     public interface IAuthService
     {
+        Task<LoginResponse> Login(LoginDTO login, HttpContext context);
+        Task Logout(HttpContext context);
         Task<UserDTO> Register(RegisterDTO register);
-        Task<LoginResponse> Login(LoginDTO login);
     }
 
     public class AuthService : IAuthService
     {
+        private readonly UserService _userService;
+        private readonly RoleService _roleService;
         private readonly AppDbContext _db;
+        private readonly IEncoderService _encoderService;
+        private readonly IMapper _mapper;
         private readonly IConfiguration _config;
 
-        public AuthService(AppDbContext db, IConfiguration config)
+        public AuthService(UserService userService, RoleService roleService, AppDbContext db, IEncoderService encoderService, IMapper mapper, IConfiguration config)
         {
+            _userService = userService;
+            _roleService = roleService;
             _db = db;
+            _encoderService = encoderService;
+            _mapper = mapper;
             _config = config;
         }
 
         public async Task<UserDTO> Register(RegisterDTO register)
         {
-            var existingUser = await _db.Users
-                .FirstOrDefaultAsync(u => u.Email == register.Email || u.UserName == register.UserName);
+            User? existingUser = await _userService
+                .GetOneByEmail(
+                    register.Email
+                );
 
-            if (existingUser != null)
-                throw new Exception("El email o nombre de usuario ya está en uso.");
+            if (existingUser != null){
+                throw new ErrorResponse(
+                        HttpStatusCode.BadRequest,
+                        "El email o nombre de usuario ya está en uso."
+                    );
+            }
 
-            var userRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name == "User")
-                ?? throw new Exception("Rol User no encontrado.");
-
-            var user = new User
+            if (register.Password != register.ConfirmPassword)
             {
-                UserName = register.UserName,
-                Email = register.Email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(register.Password),
-                Roles = new List<Role> { userRole }
-            };
+                throw new ErrorResponse(
+                        HttpStatusCode.BadRequest,
+                        "Las contraseñas no coinciden."
+                    );
+            }
 
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
+            var user = _mapper.Map<User>(register);
+            user.PasswordHash = _encoderService.Encrypt(register.Password);
+            var userRole = await _roleService.GetOneByName("User");
+            user.Roles.Add(userRole);
 
-            return ToDTO(user);
+            var created = await _userService.CreateOne(user);
+            return _mapper.Map<UserDTO>(user);
         }
 
-        public async Task<LoginResponse> Login(LoginDTO login)
+        public async Task<LoginResponse> Login(LoginDTO login, HttpContext context)
         {
-            var user = await _db.Users
-                .Include(u => u.Roles)
-                .FirstOrDefaultAsync(u => u.Email == login.Email)
-                ?? throw new Exception("Credenciales inválidas.");
+            User? user = await _userService.GetOneByEmail(login.Email);
 
-            if (!BCrypt.Net.BCrypt.Verify(login.Password, user.PasswordHash))
-                throw new Exception("Credenciales inválidas.");
+            if(user == null)
+            {
+                throw new ErrorResponse(
+                        HttpStatusCode.BadRequest,
+                        "Email inválido."
+                );
+            }
 
-            return new LoginResponse
+            bool verified = _encoderService.Verify(user.PasswordHash, login.Password);
+            if (!verified)
+            {
+                throw new ErrorResponse(
+                        HttpStatusCode.BadRequest,
+                        "Credenciales inválidas."
+                );
+            }
+
+            var loginResponse = new LoginResponse()
             {
                 Token = GenerateToken(user),
-                User = ToDTO(user)
+                User = _mapper.Map<UserDTO>(user)
             };
+
+            return loginResponse;
+        }
+
+        public async Task Logout(HttpContext context)
+        {
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         }
 
         private string GenerateToken(User user)
@@ -95,14 +133,5 @@ namespace Peliculas.Services
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
-
-        private static UserDTO ToDTO(User user) => new()
-        {
-            Id = user.Id,
-            UserName = user.UserName,
-            Email = user.Email,
-            CreatedAt = user.CreatedAt,
-            Roles = user.Roles.Select(r => r.Name).ToList()
-        };
     }
 }

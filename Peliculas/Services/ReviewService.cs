@@ -1,81 +1,77 @@
-﻿using Peliculas.Models.Review;
+﻿using System.Net;
+using AutoMapper;
+using Peliculas.Models.Review;
 using Peliculas.Models.Review.Dto;
 using Peliculas.Repositories;
+using Peliculas.Utils;
 
 namespace Peliculas.Services
 {
     public class ReviewService
     {
         private readonly IReviewRepository _reviewRepo;
+        private readonly IMapper _mapper;
 
-        public ReviewService(IReviewRepository reviewRepo)
+        public ReviewService(IReviewRepository reviewRepo, IMapper mapper)
         {
             _reviewRepo = reviewRepo;
+            _mapper = mapper;
         }
 
         public async Task<List<ReviewDTO>> GetByMovie(int movieId)
         {
             var reviews = await _reviewRepo.GetByMovie(movieId);
-            return reviews.Select(ToDTO).ToList();
+            return _mapper.Map<List<ReviewDTO>>(reviews);
         }
 
-        public async Task<ReviewDTO> Create(int userId, int movieId, CreateReviewDTO dto)
+        public async Task<Review> Create(int userId, int movieId, CreateReviewDTO createDto)
         {
+            var r = _mapper.Map<Review>(createDto);
             var alreadyExists = await _reviewRepo.ExistsByUserAndMovie(userId, movieId);
             if (alreadyExists)
                 throw new Exception("Ya tenés una reseña para esta película.");
-
-            var review = new Review
-            {
-                UserId = userId,
-                MovieId = movieId,
-                Content = dto.Content,
-                ContainsSpoilers = dto.ContainsSpoilers
-            };
-
-            var created = await _reviewRepo.Create(review);
-            var withDetails = await _reviewRepo.GetByIdWithDetails(created.Id);
-            return ToDTO(withDetails!);
+            r.UserId = userId;
+            r.MovieId = movieId;
+            return await _reviewRepo.Create(r);
         }
 
-        public async Task<ReviewDTO?> Update(int userId, int reviewId, UpdateReviewDTO dto)
+        public async Task<Review> UpdateOneById(int userId, int reviewId, UpdateReviewDTO updateDto)
         {
             var review = await _reviewRepo.GetByIdWithDetails(reviewId);
-            if (review == null) return null;
 
             if (review.UserId != userId)
                 throw new UnauthorizedAccessException("No podés editar una reseña que no es tuya.");
 
-            review.Content = dto.Content;
-            review.ContainsSpoilers = dto.ContainsSpoilers;
-            review.UpdatedAt = DateTime.UtcNow;
+            if(updateDto.Content != null)
+            {
+                review.Content = updateDto.Content;
+            }
 
-            await _reviewRepo.Update(review);
-            return ToDTO(review);
+            if(updateDto.ContainsSpoilers.HasValue)
+            {
+                review.ContainsSpoilers = updateDto.ContainsSpoilers.Value;
+            }
+
+            return await _reviewRepo.Update(review);
+
         }
 
-        public async Task<bool> Delete(int userId, int reviewId, bool isAdmin)
+        public async Task Delete(int userId, int reviewId, bool isAdmin)
         {
-            var review = await _reviewRepo.GetById(reviewId);
-            if (review == null) return false;
+            var review = await _reviewRepo.GetOne(r => r.Id == reviewId);
+
+            if(review == null)
+            {
+                throw new ErrorResponse(
+                    HttpStatusCode.NotFound,
+                    $"Review con ID {reviewId} no encontrada"
+                );
+            }
 
             if (!isAdmin && review.UserId != userId)
                 throw new UnauthorizedAccessException("No podés eliminar una reseña que no es tuya.");
 
-            return await _reviewRepo.Delete(reviewId);
+            await _reviewRepo.DeleteOne(review);
         }
-
-        private static ReviewDTO ToDTO(Review review) => new()
-        {
-            Id = review.Id,
-            MovieId = review.MovieId,
-            MovieTitle = review.Movie?.Title ?? "",
-            UserId = review.UserId,
-            UserName = review.User?.UserName ?? "",
-            Content = review.Content,
-            ContainsSpoilers = review.ContainsSpoilers,
-            CreatedAt = review.CreatedAt,
-            UpdatedAt = review.UpdatedAt
-        };
     }
 }

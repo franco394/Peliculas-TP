@@ -8,6 +8,7 @@ using Peliculas.Models.User;
 using System.Collections.Generic;
 using System.Reflection.Emit;
 using Microsoft.EntityFrameworkCore;
+using Peliculas.Models.Genre;
 
 namespace Peliculas.Config
 {
@@ -18,6 +19,7 @@ namespace Peliculas.Config
         internal DbSet<User> Users { get; set; }
         internal DbSet<Role> Roles { get; set; }
         internal DbSet<Movie> Movies { get; set; }
+        internal DbSet<Genre> Genres { get; set; }
         internal DbSet<Rating> Ratings { get; set; }
         internal DbSet<Review> Reviews { get; set; }
         internal DbSet<MovieList> MovieLists { get; set; }
@@ -65,12 +67,14 @@ namespace Peliculas.Config
                 .HasIndex(i => new { i.MovieListId, i.MovieId })
                 .IsUnique();
 
-            // Seed películas
-            modelBuilder.Entity<Movie>().HasData(
-                new Movie { Id = 1, Title = "El Padrino", Director = "Francis Ford Coppola", Year = 1972, Genre = "Drama", CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
-                new Movie { Id = 2, Title = "Pulp Fiction", Director = "Quentin Tarantino", Year = 1994, Genre = "Crimen", CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
-                new Movie { Id = 3, Title = "Parasite", Director = "Bong Joon-ho", Year = 2019, Genre = "Thriller", CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
-            );
+            // Movies
+            modelBuilder.Entity<Movie>()
+                .HasMany(x => x.Genres)
+                .WithMany()
+                .UsingEntity<MovieGenres>(
+                    l => l.HasOne<Genre>().WithMany().HasForeignKey(x => x.GenreId),
+                    r => r.HasOne<Movie>().WithMany().HasForeignKey(x => x.MovieId)
+                );
         }
     }
 }

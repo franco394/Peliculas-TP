@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Peliculas.Models.Review.Dto;
 using Peliculas.Services;
+using Peliculas.Utils;
 using System.Security.Claims;
 
 namespace Peliculas.Controllers
@@ -60,7 +61,7 @@ namespace Peliculas.Controllers
         {
             try
             {
-                var result = await _reviewService.Update(GetCurrentUserId(), reviewId, dto);
+                var result = await _reviewService.UpdateOneById(GetCurrentUserId(), reviewId, dto);
                 return result == null ? NotFound() : Ok(result);
             }
             catch (UnauthorizedAccessException)
@@ -83,8 +84,9 @@ namespace Peliculas.Controllers
         {
             try
             {
-                var deleted = await _reviewService.Delete(GetCurrentUserId(), reviewId, IsAdmin);
-                return deleted ? NoContent() : NotFound();
+                await _reviewService.Delete(GetCurrentUserId(), reviewId, IsAdmin);
+                ResponseMessage msg = new ResponseMessage($"Review con ID {reviewId} eliminada");
+                return Ok(msg);
             }
             catch (UnauthorizedAccessException)
             {

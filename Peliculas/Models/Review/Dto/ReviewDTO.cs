@@ -14,20 +14,4 @@ namespace Peliculas.Models.Review.Dto
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
-
-    public class CreateReviewDTO
-    {
-        [Required]
-        [MinLength(10)]
-        public string Content { get; set; } = string.Empty;
-        public bool ContainsSpoilers { get; set; } = false;
-    }
-
-    public class UpdateReviewDTO
-    {
-        [Required]
-        [MinLength(10)]
-        public string Content { get; set; } = string.Empty;
-        public bool ContainsSpoilers { get; set; } = false;
-    }
 }

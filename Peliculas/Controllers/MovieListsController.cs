@@ -73,6 +73,7 @@ namespace Peliculas.Controllers
         }
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -81,8 +82,9 @@ namespace Peliculas.Controllers
         {
             try
             {
-                var deleted = await _listService.Delete(GetCurrentUserId(), id);
-                return deleted ? NoContent() : NotFound();
+                await _listService.Delete(GetCurrentUserId(), id);
+
+                return Ok();
             }
             catch (UnauthorizedAccessException)
             {

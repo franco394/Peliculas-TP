@@ -1,51 +1,49 @@
-﻿using Peliculas.Models.Rating;
+﻿using System.Net;
+using AutoMapper;
+using Peliculas.Models.Rating;
 using Peliculas.Models.Rating.Dto;
 using Peliculas.Repositories;
+using Peliculas.Utils;
 
 namespace Peliculas.Services
 {
     public class RatingService
     {
         private readonly IRatingRepository _ratingRepo;
+        private readonly IMapper _mapper;
 
-        public RatingService(IRatingRepository ratingRepo)
+        public RatingService(IRatingRepository ratingRepo, IMapper mapper)
         {
             _ratingRepo = ratingRepo;
+            _mapper = mapper;
         }
-
-        public async Task<RatingDTO> Upsert(int userId, int movieId, UpsertRatingDTO dto)
+        public async Task<Rating> GetUserRating(int userId, int movieId)
         {
-            var rating = new Rating
+            var rating = await _ratingRepo.GetByUserAndMovie(userId, movieId);
+
+            if (rating == null)
             {
-                UserId = userId,
-                MovieId = movieId,
-                Score = dto.Score
-            };
+                throw new ErrorResponse(
+                    HttpStatusCode.NotFound,
+                    "Rating no encontrado"
+                );
+            }
 
+            return rating;
+        }
+
+        public async Task<Rating> Upsert(int userId, int movieId, UpsertRatingDTO upsertDto)
+        {
+            var rating = await GetUserRating(userId, movieId);
             var saved = await _ratingRepo.Upsert(rating);
-            return ToDTO(saved);
+            return saved;
         }
 
-        public async Task<bool> Delete(int userId, int movieId)
+        public async Task Delete(int userId, int movieId)
         {
-            var rating = await _ratingRepo.GetByUserAndMovie(userId, movieId);
-            if (rating == null) return false;
-            return await _ratingRepo.Delete(rating.Id);
+            var rating = await GetUserRating(userId, movieId);
+            await _ratingRepo.DeleteOne(rating);
         }
 
-        public async Task<RatingDTO?> GetUserRating(int userId, int movieId)
-        {
-            var rating = await _ratingRepo.GetByUserAndMovie(userId, movieId);
-            return rating == null ? null : ToDTO(rating);
-        }
-
-        private static RatingDTO ToDTO(Rating rating) => new()
-        {
-            Id = rating.Id,
-            MovieId = rating.MovieId,
-            MovieTitle = rating.Movie?.Title ?? "",
-            Score = rating.Score,
-            CreatedAt = rating.CreatedAt
-        };
     }
 }

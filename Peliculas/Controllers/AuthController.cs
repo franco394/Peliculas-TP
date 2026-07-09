@@ -2,11 +2,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Peliculas.Models.User.Dto;
 using Peliculas.Services;
+using Peliculas.Utils;
 
 namespace Peliculas.Controllers
 {
     [Route("api/auth")]
     [ApiController]
+    [ProducesResponseType(typeof(ResponseMessage), StatusCodes.Status500InternalServerError)]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -39,7 +41,7 @@ namespace Peliculas.Controllers
         {
             try
             {
-                var result = await _authService.Login(dto);
+                var result = await _authService.Login(dto, HttpContext);
                 return Ok(result);
             }
             catch (Exception ex)

@@ -12,8 +12,8 @@ using Peliculas.Config;
 namespace Peliculas.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260624150209_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260705212643_AllAdded")]
+    partial class AllAdded
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,26 @@ namespace Peliculas.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Peliculas.Models.Genre.Genre", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("GenreName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id")
+                        .IsUnique();
+
+                    b.ToTable("Genres");
+                });
 
             modelBuilder.Entity("Peliculas.Models.Movie.Movie", b =>
                 {
@@ -37,17 +57,15 @@ namespace Peliculas.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Director")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Genre")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PosterUrl")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Title")
@@ -60,35 +78,21 @@ namespace Peliculas.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Movies");
+                });
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Director = "Francis Ford Coppola",
-                            Genre = "Drama",
-                            Title = "El Padrino",
-                            Year = 1972
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Director = "Quentin Tarantino",
-                            Genre = "Crimen",
-                            Title = "Pulp Fiction",
-                            Year = 1994
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Director = "Bong Joon-ho",
-                            Genre = "Thriller",
-                            Title = "Parasite",
-                            Year = 2019
-                        });
+            modelBuilder.Entity("Peliculas.Models.MovieGenres", b =>
+                {
+                    b.Property<int>("GenreId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MovieId")
+                        .HasColumnType("int");
+
+                    b.HasKey("GenreId", "MovieId");
+
+                    b.HasIndex("MovieId");
+
+                    b.ToTable("MovieGenres");
                 });
 
             modelBuilder.Entity("Peliculas.Models.MovieList.MovieList", b =>
@@ -305,6 +309,21 @@ namespace Peliculas.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("RoleUser");
+                });
+
+            modelBuilder.Entity("Peliculas.Models.MovieGenres", b =>
+                {
+                    b.HasOne("Peliculas.Models.Genre.Genre", null)
+                        .WithMany()
+                        .HasForeignKey("GenreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Peliculas.Models.Movie.Movie", null)
+                        .WithMany()
+                        .HasForeignKey("MovieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Peliculas.Models.MovieList.MovieList", b =>

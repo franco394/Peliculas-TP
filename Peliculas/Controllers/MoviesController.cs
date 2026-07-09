@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Peliculas.Models.Movie;
 using Peliculas.Models.Movie.Dto;
 using Peliculas.Services;
+using Peliculas.Utils;
 using System.Security.Claims;
 
 namespace Peliculas.Controllers
@@ -25,12 +27,12 @@ namespace Peliculas.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(List<MovieDTO>), StatusCodes.Status200OK)]
-        public async Task<ActionResult<List<MovieDTO>>> GetAll(
-            [FromQuery] string? search,
-            [FromQuery] string? genre)
+        [ProducesResponseType(typeof(PagedResponseDTO<Movie>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<PagedResponseDTO<Movie>>> GetAll(
+        [FromQuery] MovieQueryDTO query)
+
         {
-            var result = await _movieService.GetAll(search, genre);
+            var result = await _movieService.GetAll(query);
             return Ok(result);
         }
 
@@ -83,6 +85,7 @@ namespace Peliculas.Controllers
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -91,8 +94,9 @@ namespace Peliculas.Controllers
         {
             try
             {
-                var deleted = await _movieService.Delete(id);
-                return deleted ? NoContent() : NotFound();
+                await _movieService.DeleteOneById(id);
+                ResponseMessage msg = new ResponseMessage($"Movie con ID {id} eliminada");
+                return Ok(msg);
             }
             catch (Exception ex)
             {

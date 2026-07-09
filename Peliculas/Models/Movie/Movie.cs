@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.ViewEngines;
+﻿using Peliculas.Models.Genre;
 
 namespace Peliculas.Models.Movie
 {
@@ -8,9 +8,9 @@ namespace Peliculas.Models.Movie
         public string Title { get; set; } = string.Empty;
         public string Director { get; set; } = string.Empty;
         public int Year { get; set; }
-        public string Genre { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public string? PosterUrl { get; set; }
+        public List<Genre.Genre> Genres { get; set; } = new();
+        public string Description { get; set; } = string.Empty;
+        public string PosterUrl { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<Rating.Rating> Ratings { get; set; } = new List<Rating.Rating>();

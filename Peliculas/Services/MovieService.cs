@@ -1,78 +1,70 @@
-﻿using Peliculas.Models.Movie;
+﻿using System.Net;
+using AutoMapper;
+using Peliculas.Models.Movie;
 using Peliculas.Models.Movie.Dto;
 using Peliculas.Repositories;
+using Peliculas.Utils;
 
 namespace Peliculas.Services
 {
     public class MovieService
     {
+        private readonly GenreService _genreService;
         private readonly IMovieRepository _movieRepo;
+        private readonly IMapper _mapper;
 
-        public MovieService(IMovieRepository movieRepo)
+        public MovieService(GenreService genreService, IMovieRepository movieRepo, IMapper mapper)
         {
+            _genreService = genreService;
             _movieRepo = movieRepo;
+            _mapper = mapper;
         }
 
-        public async Task<List<MovieDTO>> GetAll(string? search, string? genre)
+        public async Task<PagedResponseDTO<Movie>> GetAll(MovieQueryDTO query)
         {
-            var movies = await _movieRepo.GetAllWithFilters(search, genre);
-            return movies.Select(ToDTO).ToList();
+            return await _movieRepo.GetAllWithFilters(query);
         }
-
-        public async Task<MovieDTO?> GetById(int id)
+        public async Task<Movie> GetById(int id)
         {
             var movie = await _movieRepo.GetByIdWithDetails(id);
-            return movie == null ? null : ToDTO(movie);
-        }
 
-        public async Task<MovieDTO> Create(CreateMovieDTO dto)
-        {
-            var movie = new Movie
+            if(movie == null)
             {
-                Title = dto.Title,
-                Director = dto.Director,
-                Year = dto.Year,
-                Genre = dto.Genre,
-                Description = dto.Description,
-                PosterUrl = dto.PosterUrl
-            };
+                throw new ErrorResponse(
+                    HttpStatusCode.NotFound,
+                    $"Movie con ID {id} no encontrada."
+                );
+            }
 
-            var created = await _movieRepo.Create(movie);
-            return ToDTO(created);
+            return movie;
         }
 
-        public async Task<MovieDTO?> Update(int id, UpdateMovieDTO dto)
+        public async Task<Movie> Create(CreateMovieDTO createDto)
         {
-            var movie = await _movieRepo.GetById(id);
-            if (movie == null) return null;
-
-            movie.Title = dto.Title;
-            movie.Director = dto.Director;
-            movie.Year = dto.Year;
-            movie.Genre = dto.Genre;
-            movie.Description = dto.Description;
-            movie.PosterUrl = dto.PosterUrl;
-
-            var updated = await _movieRepo.Update(movie);
-            return ToDTO(updated);
+            var movie = _mapper.Map<Movie>(createDto);
+            var genres = await _genreService.GetManyByIds(createDto.GenresIds);
+            movie.Genres = genres;
+            return await _movieRepo.Create(movie);
         }
 
-        public async Task<bool> Delete(int id) =>
-            await _movieRepo.Delete(id);
-
-        private static MovieDTO ToDTO(Movie movie) => new()
+        public async Task<Movie> Update(int id, UpdateMovieDTO updateDto)
         {
-            Id = movie.Id,
-            Title = movie.Title,
-            Director = movie.Director,
-            Year = movie.Year,
-            Genre = movie.Genre,
-            Description = movie.Description,
-            PosterUrl = movie.PosterUrl,
-            AverageRating = movie.Ratings.Count > 0
-                ? movie.Ratings.Average(r => r.Score)
-                : 0,
-            RatingCount = movie.Ratings.Count
-        };
+            var movie = await GetById(id);
+
+            if (updateDto.GenresIds != null)
+            {
+                var genres = await _genreService.GetManyByIds(updateDto.GenresIds);
+                movie.Genres = genres;
+            }
+
+            var updated = _mapper.Map(updateDto, movie);
+            return await _movieRepo.Update(updated);
+        }
+
+        public async Task DeleteOneById(int id)
+        {
+            var movie = await GetById(id);
+            await _movieRepo.DeleteOne(movie);
+        }
     }
 }

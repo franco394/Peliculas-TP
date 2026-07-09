@@ -38,6 +38,7 @@ namespace Peliculas.Controllers
         }
 
         [HttpDelete]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -45,8 +46,8 @@ namespace Peliculas.Controllers
         {
             try
             {
-                var deleted = await _ratingService.Delete(GetCurrentUserId(), movieId);
-                return deleted ? NoContent() : NotFound();
+                await _ratingService.Delete(GetCurrentUserId(), movieId);
+                return Ok();
             }
             catch (Exception ex)
             {
