@@ -1,7 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Peliculas.Config;
 using Peliculas.Models.Role;
@@ -20,13 +19,13 @@ namespace Peliculas.Services
         Task<LoginResponse> Login(LoginDTO login, HttpContext context);
         Task Logout(HttpContext context);
         Task<UserDTO> Register(RegisterDTO register);
+        Task<UserDTO> UpdateRolesToUser(int userId, List<int> roleIds);
     }
 
     public class AuthService : IAuthService
     {
         private readonly UserService _userService;
         private readonly RoleService _roleService;
-        private readonly AppDbContext _db;
         private readonly IEncoderService _encoderService;
         private readonly IMapper _mapper;
         private readonly IConfiguration _config;
@@ -35,7 +34,6 @@ namespace Peliculas.Services
         {
             _userService = userService;
             _roleService = roleService;
-            _db = db;
             _encoderService = encoderService;
             _mapper = mapper;
             _config = config;
@@ -93,6 +91,8 @@ namespace Peliculas.Services
                 );
             }
 
+            await SetCookie(user, context);
+
             var loginResponse = new LoginResponse()
             {
                 Token = GenerateToken(user),
@@ -132,6 +132,39 @@ namespace Peliculas.Services
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public async Task SetCookie(User user, HttpContext context)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(ClaimTypes.Email, user.Email),
+            };
+            foreach (var role in user.Roles)
+                claims.Add(new Claim(ClaimTypes.Role, role.Name));
+            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
+            };
+            await context.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(claimsIdentity),
+                authProperties
+            );
+        }
+
+        public async Task<UserDTO> UpdateRolesToUser(int userId, List<int> rolesIds)
+        {
+            User user = await _userService.GetOneById(userId);
+            List<Role> roles = await _roleService.GetManyByIds(rolesIds);
+            user.Roles = roles;
+            var updatedUser = await _userService.UpdateEntity(user);
+            var mapped = _mapper.Map<UserDTO>(updatedUser);
+            return mapped;
         }
     }
 }
