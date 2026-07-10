@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Peliculas.Models.MovieList.Dto;
 using Peliculas.Services;
-using System.Security.Claims;
+using Peliculas.Utils;
 
 namespace Peliculas.Controllers
 {
@@ -47,11 +48,16 @@ namespace Peliculas.Controllers
                     : null;
 
                 var result = await _listService.GetById(id, currentUserId);
-                return result == null ? NotFound() : Ok(result);
+                return Ok(result);
             }
-            catch (UnauthorizedAccessException)
+            catch (ErrorResponse ex)
             {
-                return Forbid();
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
@@ -66,9 +72,14 @@ namespace Peliculas.Controllers
                 var result = await _listService.Create(GetCurrentUserId(), dto);
                 return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
             }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
@@ -83,21 +94,22 @@ namespace Peliculas.Controllers
             try
             {
                 await _listService.Delete(GetCurrentUserId(), id);
-
-                return Ok();
+                ResponseMessage msg = new ResponseMessage($"Lista con ID:{id} eliminada con éxito.");
+                return Ok(msg);
             }
-            catch (UnauthorizedAccessException)
+            catch (ErrorResponse ex)
             {
-                return Forbid();
+                return StatusCode((int)ex.StatusCode, ex.Message);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
         [HttpPost("{id}/movies")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -106,20 +118,22 @@ namespace Peliculas.Controllers
             try
             {
                 await _listService.AddMovie(GetCurrentUserId(), id, dto);
-                return NoContent();
+                ResponseMessage msg = new ResponseMessage($"Película con ID:{dto.MovieId} agregada a la lista con ID:{id} con éxito.");
+                return Ok(msg);
             }
-            catch (UnauthorizedAccessException)
+            catch (ErrorResponse ex)
             {
-                return Forbid();
+                return StatusCode((int)ex.StatusCode, ex.Message);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
         [HttpDelete("{id}/movies/{movieId}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -128,15 +142,17 @@ namespace Peliculas.Controllers
             try
             {
                 await _listService.RemoveMovie(GetCurrentUserId(), id, movieId);
-                return NoContent();
+                ResponseMessage msg = new ResponseMessage($"Película con ID:{movieId} eliminada de la lista con ID:{id} con éxito.");
+                return Ok(msg);
             }
-            catch (UnauthorizedAccessException)
+            catch (ErrorResponse ex)
             {
-                return Forbid();
+                return StatusCode((int)ex.StatusCode, ex.Message);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
     }

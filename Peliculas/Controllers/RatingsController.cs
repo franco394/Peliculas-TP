@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Peliculas.Models.Rating.Dto;
 using Peliculas.Services;
-using System.Security.Claims;
+using Peliculas.Utils;
 
 namespace Peliculas.Controllers
 {
@@ -31,15 +32,19 @@ namespace Peliculas.Controllers
                 var result = await _ratingService.Upsert(GetCurrentUserId(), movieId, dto);
                 return Ok(result);
             }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
         [HttpDelete]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Delete(int movieId)
@@ -49,9 +54,14 @@ namespace Peliculas.Controllers
                 await _ratingService.Delete(GetCurrentUserId(), movieId);
                 return Ok();
             }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
@@ -61,8 +71,20 @@ namespace Peliculas.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<RatingDTO>> GetMine(int movieId)
         {
-            var result = await _ratingService.GetUserRating(GetCurrentUserId(), movieId);
-            return result == null ? NotFound() : Ok(result);
+            try
+            {
+                var result = await _ratingService.GetUserRating(GetCurrentUserId(), movieId);
+                return result;
+            }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
+            }
         }
     }
 }

@@ -27,8 +27,8 @@ namespace Peliculas.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(PagedResponseDTO<Movie>), StatusCodes.Status200OK)]
-        public async Task<ActionResult<PagedResponseDTO<Movie>>> GetAll(
+        [ProducesResponseType(typeof(PagedResponseDTO<MovieDTO>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<PagedResponseDTO<MovieDTO>>> GetAll(
         [FromQuery] MovieQueryDTO query)
 
         {
@@ -41,8 +41,20 @@ namespace Peliculas.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<MovieDTO>> GetById(int id)
         {
-            var result = await _movieService.GetById(id);
-            return result == null ? NotFound() : Ok(result);
+            try
+            {
+                var result = await _movieService.GetById(id);
+                return Ok(result);
+            }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
+            }
         }
 
         [HttpPost]
@@ -58,9 +70,14 @@ namespace Peliculas.Controllers
                 var result = await _movieService.Create(dto);
                 return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
             }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
@@ -77,9 +94,14 @@ namespace Peliculas.Controllers
                 var result = await _movieService.Update(id, dto);
                 return result == null ? NotFound() : Ok(result);
             }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
 
@@ -98,9 +120,14 @@ namespace Peliculas.Controllers
                 ResponseMessage msg = new ResponseMessage($"Movie con ID {id} eliminada");
                 return Ok(msg);
             }
+            catch (ErrorResponse ex)
+            {
+                return StatusCode((int)ex.StatusCode, ex.Message);
+            }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                ResponseMessage msg = new ResponseMessage(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, msg);
             }
         }
     }

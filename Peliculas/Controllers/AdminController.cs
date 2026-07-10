@@ -29,7 +29,8 @@ namespace Peliculas.Controllers
             var totalReviews = await _db.Reviews.CountAsync();
 
             var moviesByGenre = await _db.Movies
-                .GroupBy(m => m.Genres)
+                .SelectMany(m => m.Genres)
+                .GroupBy(g => new { g.Id, g.GenreName })
                 .Select(g => new { Genre = g.Key, Count = g.Count() })
                 .ToListAsync();
 
