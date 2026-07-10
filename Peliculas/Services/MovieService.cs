@@ -20,15 +20,23 @@ namespace Peliculas.Services
             _mapper = mapper;
         }
 
-        public async Task<PagedResponseDTO<Movie>> GetAll(MovieQueryDTO query)
+        public async Task<PagedResponseDTO<MovieDTO>> GetAll(MovieQueryDTO query)
         {
-            return await _movieRepo.GetAllWithFilters(query);
+            var paged = await _movieRepo.GetAllWithFilters(query);
+            var mappedData = _mapper.Map<List<MovieDTO>>(paged.Data);
+            return _mapper.Map<PagedResponseDTO<MovieDTO>>(paged, opt =>
+            {
+                opt.AfterMap((src, dest) =>
+                {
+                    dest.Data = mappedData;
+                });
+            });
         }
-        public async Task<Movie> GetById(int id)
+        public async Task<MovieDTO> GetById(int id)
         {
             var movie = await _movieRepo.GetByIdWithDetails(id);
 
-            if(movie == null)
+            if (movie == null)
             {
                 throw new ErrorResponse(
                     HttpStatusCode.NotFound,
@@ -36,34 +44,52 @@ namespace Peliculas.Services
                 );
             }
 
-            return movie;
+            return _mapper.Map<MovieDTO>(movie);
         }
 
-        public async Task<Movie> Create(CreateMovieDTO createDto)
+        public async Task<MovieDTO> Create(CreateMovieDTO createDto)
         {
             var movie = _mapper.Map<Movie>(createDto);
             var genres = await _genreService.GetManyByIds(createDto.GenresIds);
             movie.Genres = genres;
-            return await _movieRepo.Create(movie);
+            var created = await _movieRepo.Create(movie);
+            return _mapper.Map<MovieDTO>(created);
         }
 
-        public async Task<Movie> Update(int id, UpdateMovieDTO updateDto)
+        public async Task<MovieDTO> Update(int id, UpdateMovieDTO updateDto)
         {
-            var movie = await GetById(id);
+            var movie = await _movieRepo.GetByIdWithDetails(id);
 
-            if (updateDto.GenresIds != null)
+            if (movie == null)
+            {
+                throw new ErrorResponse(
+                    HttpStatusCode.NotFound,
+                    $"Movie con ID {id} no encontrada."
+                );
+            }
+
+            if (updateDto.GenresIds != null && updateDto.GenresIds.Count != 0)
             {
                 var genres = await _genreService.GetManyByIds(updateDto.GenresIds);
                 movie.Genres = genres;
             }
 
-            var updated = _mapper.Map(updateDto, movie);
-            return await _movieRepo.Update(updated);
+            var updated = await _movieRepo.Update(movie);
+            return _mapper.Map<MovieDTO>(updated);
         }
 
         public async Task DeleteOneById(int id)
         {
-            var movie = await GetById(id);
+            var movie = await _movieRepo.GetByIdWithDetails(id);
+
+            if (movie == null)
+            {
+                throw new ErrorResponse(
+                    HttpStatusCode.NotFound,
+                    $"Movie con ID {id} no encontrada."
+                );
+            }
+
             await _movieRepo.DeleteOne(movie);
         }
     }

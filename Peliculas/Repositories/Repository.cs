@@ -39,14 +39,14 @@ namespace Peliculas.Repositories
 
         public async Task<T> Create(T entity)
         {
-            _db.Set<T>().Add(entity);
+            dbSet.Add(entity);
             await _db.SaveChangesAsync();
             return entity;
         }
 
         public async Task<T> Update(T entity)
         {
-            _db.Set<T>().Update(entity);
+            dbSet.Update(entity);
             await _db.SaveChangesAsync();
             return entity;
         }

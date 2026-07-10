@@ -17,7 +17,7 @@ namespace Peliculas.Services
             _ratingRepo = ratingRepo;
             _mapper = mapper;
         }
-        public async Task<Rating> GetUserRating(int userId, int movieId)
+        public async Task<RatingDTO> GetUserRating(int userId, int movieId)
         {
             var rating = await _ratingRepo.GetByUserAndMovie(userId, movieId);
 
@@ -29,19 +29,41 @@ namespace Peliculas.Services
                 );
             }
 
-            return rating;
+            var mapped = _mapper.Map<RatingDTO>(rating);
+            return mapped;
         }
 
-        public async Task<Rating> Upsert(int userId, int movieId, UpsertRatingDTO upsertDto)
+        public async Task<RatingDTO> Upsert(int userId, int movieId, UpsertRatingDTO upsertDto)
         {
-            var rating = await GetUserRating(userId, movieId);
+            if (upsertDto.Score == null)
+            {
+                throw new ErrorResponse(
+                    HttpStatusCode.BadRequest,
+                    "Score no puede ser nulo"
+                );
+            }
+
+            var rating = _mapper.Map<Rating>(upsertDto);
+            rating.UserId = userId;
+            rating.MovieId = movieId;
+            rating.Score = upsertDto.Score.Value;
             var saved = await _ratingRepo.Upsert(rating);
-            return saved;
+            var mapped = _mapper.Map<RatingDTO>(saved);
+            return mapped;
         }
 
         public async Task Delete(int userId, int movieId)
         {
-            var rating = await GetUserRating(userId, movieId);
+            var rating = await _ratingRepo.GetByUserAndMovie(userId, movieId);
+
+            if (rating == null)
+            {
+                throw new ErrorResponse(
+                    HttpStatusCode.NotFound,
+                    "Rating no encontrado"
+                );
+            }
+
             await _ratingRepo.DeleteOne(rating);
         }
 

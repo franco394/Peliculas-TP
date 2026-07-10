@@ -48,10 +48,9 @@ namespace Peliculas.Services
             return await _userRepo.Update(updated);
         }
 
-        public async Task DeleteOneById(int id)
+        public async Task<User> UpdateEntity(User user)
         {
-            var u = await _userRepo.GetOne(x => x.Id == id);
-            await _userRepo.DeleteOne(u);
+            return await _userRepo.Update(user);
         }
 
         public async Task<User> GetOneByEmail(string? email)
