@@ -74,6 +74,10 @@ namespace Peliculas.Services
                 movie.Genres = genres;
             }
 
+
+            movie.Title = updateDto.Title;
+            movie.Director = updateDto.Director;
+            movie.PosterUrl = updateDto.PosterUrl;
             var updated = await _movieRepo.Update(movie);
             return _mapper.Map<MovieDTO>(updated);
         }

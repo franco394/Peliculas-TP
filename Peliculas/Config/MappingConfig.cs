@@ -61,6 +61,7 @@ namespace Peliculas.Config
                 .ForAllMembers(
                     config => config.Condition((_, _, value) => value != null)
                 );
+
             //---------PAGED RESPONSE
             CreateMap(typeof(PagedResponseDTO<>), typeof(PagedResponseDTO<>));
 
