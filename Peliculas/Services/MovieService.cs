@@ -78,6 +78,7 @@ namespace Peliculas.Services
             movie.Title = updateDto.Title;
             movie.Director = updateDto.Director;
             movie.PosterUrl = updateDto.PosterUrl;
+            movie.Description = updateDto.Description;
             var updated = await _movieRepo.Update(movie);
             return _mapper.Map<MovieDTO>(updated);
         }
