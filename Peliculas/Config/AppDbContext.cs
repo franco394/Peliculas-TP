@@ -38,6 +38,25 @@ namespace Peliculas.Config
             modelBuilder.Entity<User>().HasIndex(x => x.UserName).IsUnique();
             modelBuilder.Entity<User>().HasIndex(x => x.Email).IsUnique();
 
+            // Seed usuario admin por defecto
+            // Nota: la contraseña por defecto es "admin123" (puedes cambiarla).
+            var adminPasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123", BCrypt.Net.BCrypt.GenerateSalt(13));
+            modelBuilder.Entity<User>().HasData(
+                new User
+                {
+                    Id = 1,
+                    UserName = "admin",
+                    Email = "admin@local.com",
+                    PasswordHash = adminPasswordHash,
+                    CreatedAt = DateTime.UtcNow
+                }
+            );
+
+            // Asignar rol Admin al usuario seed (tabla intermedia RoleUser)
+            modelBuilder.Entity("RoleUser").HasData(
+                new { RoleId = 1, UserId = 1 }
+            );
+
             // User → Roles (many to many)
             modelBuilder.Entity<User>()
                 .HasMany(x => x.Roles)

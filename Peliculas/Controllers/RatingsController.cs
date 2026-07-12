@@ -66,9 +66,10 @@ namespace Peliculas.Controllers
         }
 
         [HttpGet("me")]
+        [Authorize(Roles = "User")]
         [ProducesResponseType(typeof(RatingDTO), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<RatingDTO>> GetMine(int movieId)
         {
             try

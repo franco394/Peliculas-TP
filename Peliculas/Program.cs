@@ -81,7 +81,7 @@ string secret = builder.Configuration["Secrets:jwt"]
     ?? throw new Exception("invalid jwt secret");
 
 builder.Services.AddAuthentication(options => { 
-    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
 })
