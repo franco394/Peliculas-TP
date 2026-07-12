@@ -60,6 +60,7 @@ namespace Peliculas.Repositories
         public async Task<Movie?> GetByIdWithDetails(int id)
         {
             return await _db.Movies
+                .Include(g => g.Genres)
                 .Include(m => m.Ratings)
                 .Include(m => m.Reviews).ThenInclude(r => r.User)
                 .FirstOrDefaultAsync(m => m.Id == id);
