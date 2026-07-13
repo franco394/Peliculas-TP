@@ -66,7 +66,11 @@ namespace Peliculas.Config
             CreateMap(typeof(PagedResponseDTO<>), typeof(PagedResponseDTO<>));
 
             //---------MOVIES LIST
-            CreateMap<MovieList, MovieListDTO>();
+            CreateMap<MovieList, MovieListDTO>()
+                .ForMember(
+                    dest => dest.MovieCount,
+                    opt => opt.MapFrom(src => src.Items != null ? src.Items.Count() : 0)
+                );
             CreateMap<MovieListItem, MovieListItemDTO>()
                 .ForMember(
                     dest => dest.Title,
